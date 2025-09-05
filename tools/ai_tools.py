@@ -823,15 +823,7 @@ def conversational_ai():
     """Advanced conversational AI chatbot"""
     create_tool_header("Conversational AI", "Have natural conversations with AI", "🤖💬")
     
-    # Check API key availability
-    import os
-    gemini_available = bool(os.getenv("GOOGLE_API_KEY"))
-    
-    if not gemini_available:
-        st.error("🔑 No Google API key found! Please add GOOGLE_API_KEY to your environment variables to use this feature.")
-        st.info("💡 You can get a Google API key from:")
-        st.markdown("- **Gemini**: https://makersuite.google.com/app/apikey")
-        return
+    # API key is now hardcoded in the AI client - no need to check environment
     
     # Chatbot configuration
     st.subheader("🔧 Configure Your AI Assistant")
