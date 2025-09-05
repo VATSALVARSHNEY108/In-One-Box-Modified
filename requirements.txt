@@ -40,5 +40,8 @@ opencv-python-headless
 scikit-learn
 matplotlib
 cryptography
+seaborn
+
+
 
 
