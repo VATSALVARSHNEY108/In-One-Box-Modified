@@ -39,5 +39,6 @@ qrcode[pil]
 opencv-python-headless
 scikit-learn
 matplotlib
+cryptography
 
 
