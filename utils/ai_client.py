@@ -7,19 +7,15 @@ import base64
 
 # Import AI libraries
 try:
-    from google import genai
-    from google.genai import types
+    import google.generativeai as genai
 
     GEMINI_AVAILABLE = True
 except ImportError:
+    genai = None
     GEMINI_AVAILABLE = False
 
-try:
-    from openai import OpenAI
-
-    OPENAI_AVAILABLE = True
-except ImportError:
-    OPENAI_AVAILABLE = False
+# OpenAI removed as requested
+OPENAI_AVAILABLE = False
 
 
 class AIClient:
@@ -27,49 +23,31 @@ class AIClient:
 
     def __init__(self):
         self.gemini_client = None
-        self.openai_client = None
         self._init_clients()
 
     def _init_clients(self):
         """Initialize AI clients with API keys"""
         # Initialize Gemini
         gemini_key = os.getenv("GEMINI_API_KEY")
-        if gemini_key and GEMINI_AVAILABLE:
+        if gemini_key and GEMINI_AVAILABLE and genai:
             try:
-                self.gemini_client = genai.Client(api_key=gemini_key)
+                genai.configure(api_key=gemini_key)
+                self.gemini_client = genai
             except Exception as e:
-                st.error(f"Failed to initialize Gemini: {str(e)}")
+                print(f"Failed to initialize Gemini: {str(e)}")
 
-        # Initialize OpenAI
-        openai_key = os.getenv("OPENAI_API_KEY")
-        if openai_key and OPENAI_AVAILABLE:
-            try:
-                self.openai_client = OpenAI(api_key=openai_key)
-            except Exception as e:
-                st.error(f"Failed to initialize OpenAI: {str(e)}")
+        # OpenAI support removed
 
     def generate_text(self, prompt: str, model: str = "gemini", max_tokens: int = 1000) -> str:
         """Generate text using specified AI model"""
         try:
             if model == "gemini" and self.gemini_client:
-                response = self.gemini_client.models.generate_content(
-                    model="gemini-2.5-flash",
-                    contents=prompt
-                )
-                return response.text or "No response generated"
-
-            elif model == "openai" and self.openai_client:
-                # the newest OpenAI model is "gpt-5" which was released August 7, 2025.
-                # do not change this unless explicitly requested by the user
-                response = self.openai_client.chat.completions.create(
-                    model="gpt-5",
-                    messages=[{"role": "user", "content": prompt}],
-                    max_tokens=max_tokens
-                )
-                return response.choices[0].message.content
+                model_instance = self.gemini_client.GenerativeModel("gemini-1.5-flash")
+                response = model_instance.generate_content(prompt)
+                return response.text if hasattr(response, 'text') and response.text else "No response generated"
 
             else:
-                return "AI model not available. Please check API keys."
+                return "Gemini model not available. Please check your Gemini API key."
 
         except Exception as e:
             return f"Error generating text: {str(e)}"
@@ -78,40 +56,15 @@ class AIClient:
         """Analyze image using AI"""
         try:
             if self.gemini_client:
-                response = self.gemini_client.models.generate_content(
-                    model="gemini-2.5-pro",
-                    contents=[
-                        types.Part.from_bytes(
-                            data=image_data,
-                            mime_type="image/jpeg",
-                        ),
-                        prompt
-                    ],
-                )
+                import PIL.Image
+                import io
+                image = PIL.Image.open(io.BytesIO(image_data))
+                model_instance = self.gemini_client.GenerativeModel("gemini-1.5-flash")
+                response = model_instance.generate_content([prompt, image])
                 return response.text if response.text else "No analysis available"
 
-            elif self.openai_client:
-                base64_image = base64.b64encode(image_data).decode('utf-8')
-                response = self.openai_client.chat.completions.create(
-                    model="gpt-5",
-                    messages=[
-                        {
-                            "role": "user",
-                            "content": [
-                                {"type": "text", "text": prompt},
-                                {
-                                    "type": "image_url",
-                                    "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}
-                                }
-                            ],
-                        }
-                    ],
-                    max_tokens=500,
-                )
-                return response.choices[0].message.content
-
             else:
-                return "Image analysis not available. Please check API keys."
+                return "Image analysis only available with Gemini. Please check your Gemini API key."
 
         except Exception as e:
             return f"Error analyzing image: {str(e)}"
@@ -119,19 +72,9 @@ class AIClient:
     def generate_image(self, prompt: str, model: str = "gemini") -> Optional[bytes]:
         """Generate image using AI"""
         try:
+            # Note: Gemini image generation is currently not available in this setup
             if model == "gemini" and self.gemini_client:
-                response = self.gemini_client.models.generate_content(
-                    model="gemini-2.0-flash-preview-image-generation",
-                    contents=prompt,
-                    config=types.GenerateContentConfig(
-                        response_modalities=['TEXT', 'IMAGE']
-                    )
-                )
-
-                if response.candidates and response.candidates[0].content:
-                    for part in response.candidates[0].content.parts:
-                        if part.inline_data and part.inline_data.data:
-                            return part.inline_data.data
+                return None
 
             elif model == "openai" and self.openai_client:
                 response = self.openai_client.images.generate(
@@ -142,10 +85,12 @@ class AIClient:
                 )
 
                 # Download image from URL
-                image_url = response.data[0].url
-                img_response = requests.get(image_url)
-                if img_response.status_code == 200:
-                    return img_response.content
+                if response.data and len(response.data) > 0:
+                    image_url = response.data[0].url
+                    if image_url:
+                        img_response = requests.get(image_url)
+                        if img_response.status_code == 200:
+                            return img_response.content
 
             return None
 
@@ -169,32 +114,13 @@ class AIClient:
                 Respond in JSON format.
                 """
 
-                response = self.gemini_client.models.generate_content(
-                    model="gemini-2.5-pro",
-                    contents=prompt,
-                    config=types.GenerateContentConfig(
-                        response_mime_type="application/json",
-                    ),
-                )
+                model_instance = self.gemini_client.GenerativeModel("gemini-1.5-flash")
+                response = model_instance.generate_content(prompt)
 
                 if response.text:
                     return json.loads(response.text)
 
-            elif self.openai_client:
-                response = self.openai_client.chat.completions.create(
-                    model="gpt-5",
-                    messages=[
-                        {
-                            "role": "system",
-                            "content": "Analyze sentiment and respond with JSON containing sentiment, confidence, indicators, and explanation."
-                        },
-                        {"role": "user", "content": text}
-                    ],
-                    response_format={"type": "json_object"}
-                )
-                return json.loads(response.choices[0].message.content)
-
-            return {"error": "No AI model available"}
+            return {"error": "Sentiment analysis only available with Gemini. Please check your Gemini API key."}
 
         except Exception as e:
             return {"error": f"Sentiment analysis failed: {str(e)}"}
@@ -220,8 +146,6 @@ class AIClient:
         models = []
         if self.gemini_client:
             models.append("gemini")
-        if self.openai_client:
-            models.append("openai")
         return models
 
 
