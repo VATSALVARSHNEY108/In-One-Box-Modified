@@ -12,6 +12,9 @@ def display_tools():
     """Display all AI tools"""
 
     tool_categories = {
+        "Multiple AI Model Integrations": [
+            "Model Comparison", "Multi-Model Chat", "Model Selector", "Performance Benchmark", "API Manager"
+        ],
         "Text Generation": [
             "Content Creator", "Story Writer", "Article Generator", "Copywriting Assistant", "Technical Writer"
         ],
@@ -38,10 +41,7 @@ def display_tools():
         ],
         "Voice & Audio": [
             "Speech Recognition", "Voice Synthesis", "Audio Analysis", "Voice Cloning", "Sound Generation"
-        ],
-        "Multiple AI Model Integrations": [
-            "Model Comparison", "Multi-Model Chat", "Model Selector", "Performance Benchmark", "API Manager"
-        ],
+        ]
     }
 
     selected_category = st.selectbox("Select AI Tool Category", list(tool_categories.keys()))
@@ -846,8 +846,213 @@ def data_insights():
 
 
 def conversational_ai():
-    """Conversational AI builder"""
-    st.info("Conversational AI - Coming soon!")
+    """Advanced conversational AI chatbot"""
+    create_tool_header("Conversational AI", "Have natural conversations with AI", "🤖💬")
+
+    # Check API key availability
+    import os
+    gemini_available = bool(os.getenv("GEMINI_API_KEY"))
+
+    if not gemini_available:
+        st.error(
+            "🔑 No Gemini API key found! Please add GEMINI_API_KEY to your environment variables to use this feature.")
+        st.info("💡 You can get a Gemini API key from:")
+        st.markdown("- **Gemini**: https://makersuite.google.com/app/apikey")
+        return
+
+    # Chatbot configuration
+    st.subheader("🔧 Configure Your AI Assistant")
+
+    col1, col2 = st.columns(2)
+    with col1:
+        model_choice = "gemini"  # Only Gemini is available
+        st.info("🤖 Using Google Gemini AI model")
+        personality = st.selectbox(
+            "Personality",
+            ["Helpful Assistant", "Creative Writer", "Technical Expert", "Casual Friend", "Professional Mentor"],
+            help="Choose the AI's conversation style"
+        )
+
+    with col2:
+        conversation_mode = st.selectbox(
+            "Conversation Mode",
+            ["General Chat", "Question & Answer", "Brainstorming", "Problem Solving", "Learning Assistant"],
+            help="Set the conversation context"
+        )
+        max_tokens = st.slider("Response Length", 100, 2000, 500, 50, help="Maximum tokens per response")
+
+    # Custom system prompt
+    with st.expander("🎯 Custom Instructions (Optional)"):
+        custom_instructions = st.text_area(
+            "Additional instructions for the AI",
+            placeholder="e.g., 'Always respond in a friendly tone' or 'Focus on practical solutions'",
+            height=100
+        )
+
+    # Initialize conversation history
+    if 'conversation_history' not in st.session_state:
+        st.session_state.conversation_history = []
+
+    # Build system prompt based on settings
+    system_prompts = {
+        "Helpful Assistant": "You are a helpful, knowledgeable assistant. Provide clear, accurate, and useful responses.",
+        "Creative Writer": "You are a creative writing assistant. Help with storytelling, poetry, and creative expression.",
+        "Technical Expert": "You are a technical expert. Provide detailed, accurate technical information and solutions.",
+        "Casual Friend": "You are a friendly, casual conversational partner. Keep responses warm and engaging.",
+        "Professional Mentor": "You are a professional mentor. Provide guidance, advice, and constructive feedback."
+    }
+
+    base_prompt = system_prompts[personality]
+    if custom_instructions:
+        base_prompt += f"\n\nAdditional instructions: {custom_instructions}"
+
+    if conversation_mode != "General Chat":
+        base_prompt += f"\n\nContext: This conversation is focused on {conversation_mode.lower()}."
+
+    # Chat interface
+    st.markdown("---")
+    st.subheader("💬 Conversation")
+
+    # Display conversation history
+    if st.session_state.conversation_history:
+        chat_container = st.container()
+        with chat_container:
+            for i, exchange in enumerate(st.session_state.conversation_history):
+                # User message
+                st.markdown(f"""
+                <div style="background: linear-gradient(135deg, rgba(100, 150, 255, 0.1), rgba(150, 100, 255, 0.1)); 
+                            padding: 1rem; border-radius: 10px; margin: 0.5rem 0; border-left: 4px solid #6496ff;">
+                    <strong>👤 You:</strong><br>
+                    {exchange['user']}
+                </div>
+                """, unsafe_allow_html=True)
+
+                # AI response
+                st.markdown(f"""
+                <div style="background: linear-gradient(135deg, rgba(150, 255, 150, 0.1), rgba(255, 150, 150, 0.1)); 
+                            padding: 1rem; border-radius: 10px; margin: 0.5rem 0; border-left: 4px solid #64ff96;">
+                    <strong>🤖 AI ({model_choice.title() if model_choice else 'Unknown'}):</strong><br>
+                    {exchange['ai']}
+                </div>
+                """, unsafe_allow_html=True)
+
+    # User input
+    st.markdown("---")
+    user_input = st.text_area(
+        "💭 Your message:",
+        height=120,
+        placeholder=f"Ask me anything! I'm configured as a {personality.lower()} for {conversation_mode.lower()}..."
+    )
+
+    # Control buttons
+    col1, col2, col3, col4 = st.columns([2, 1, 1, 1])
+    with col1:
+        if st.button("📤 Send Message", type="primary"):
+            if user_input.strip():
+                send_conversational_message(user_input, model_choice, base_prompt, max_tokens)
+
+    with col2:
+        if st.button("🗑️ Clear Chat"):
+            st.session_state.conversation_history = []
+            st.rerun()
+
+    with col3:
+        if st.button("💾 Export Chat"):
+            export_conversation_history()
+
+    with col4:
+        if st.session_state.conversation_history:
+            if st.button("🔄 Continue"):
+                st.text_area(
+                    "Continue the conversation:",
+                    value="That's interesting. Can you tell me more about...",
+                    key="continue_prompt"
+                )
+
+    # Quick suggestions
+    if not st.session_state.conversation_history:
+        st.subheader("💡 Quick Start Ideas")
+        suggestions = {
+            "General Chat": ["Tell me a joke", "What's your favorite book?", "How are you today?"],
+            "Question & Answer": ["Explain quantum physics", "How does photosynthesis work?",
+                                  "What is artificial intelligence?"],
+            "Brainstorming": ["Ideas for a birthday party", "Creative project concepts", "Business name suggestions"],
+            "Problem Solving": ["Help me organize my schedule", "Solve this math problem", "Debug my code logic"],
+            "Learning Assistant": ["Teach me Spanish basics", "Explain machine learning", "Help me understand history"]
+        }
+
+        cols = st.columns(3)
+        for i, suggestion in enumerate(suggestions.get(conversation_mode, suggestions["General Chat"])):
+            with cols[i % 3]:
+                if st.button(f"💬 {suggestion}", key=f"suggestion_{i}"):
+                    st.session_state.temp_input = suggestion
+                    send_conversational_message(suggestion, model_choice, base_prompt, max_tokens)
+
+    # Conversation stats
+    if st.session_state.conversation_history:
+        st.markdown("---")
+        st.subheader("📊 Conversation Stats")
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Messages Exchanged", len(st.session_state.conversation_history) * 2)
+        with col2:
+            total_words = sum(len(ex['user'].split()) + len(ex['ai'].split())
+                              for ex in st.session_state.conversation_history)
+            st.metric("Total Words", total_words)
+        with col3:
+            st.metric("AI Model", model_choice.title() if model_choice else 'Unknown')
+
+
+def send_conversational_message(message, model, system_prompt, max_tokens):
+    """Send a message in conversational context"""
+    with st.spinner(f"🤖 AI is thinking..."):
+        # Build conversation context
+        context = f"System: {system_prompt}\n\n"
+
+        # Add recent conversation history for context (last 5 exchanges)
+        recent_history = st.session_state.conversation_history[-5:] if st.session_state.conversation_history else []
+        for exchange in recent_history:
+            context += f"User: {exchange['user']}\nAssistant: {exchange['ai']}\n\n"
+
+        context += f"User: {message}\nAssistant: "
+
+        # Generate response
+        response = ai_client.generate_text(context, model=model, max_tokens=max_tokens)
+
+        # Check for error responses
+        if response.startswith("Error") or response.startswith("AI model not available"):
+            st.error(f"❌ {response}")
+            if "API key" in response.lower():
+                st.info("💡 Please check your API key configuration in the environment variables.")
+            return
+
+        # Add to conversation history
+        st.session_state.conversation_history.append({
+            'user': message,
+            'ai': response,
+            'timestamp': datetime.now().isoformat(),
+            'model': model
+        })
+
+        st.rerun()
+
+
+def export_conversation_history():
+    """Export conversation history to file"""
+    if st.session_state.conversation_history:
+        conversation_data = {
+            'conversation': st.session_state.conversation_history,
+            'exported_at': datetime.now().isoformat(),
+            'total_exchanges': len(st.session_state.conversation_history)
+        }
+
+        conversation_json = json.dumps(conversation_data, indent=2)
+        FileHandler.create_download_link(
+            conversation_json.encode(),
+            f"conversation_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
+            "application/json"
+        )
+        st.success("📥 Conversation exported! Check your downloads.")
 
 
 def ocr_reader():
