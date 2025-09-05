@@ -38,4 +38,6 @@ watchdog==6.0.0
 qrcode[pil]
 opencv-python-headless
 scikit-learn
+matplotlib
+
 
