@@ -25,9 +25,9 @@ class AIClient:
     
     def _init_clients(self):
         """Initialize AI clients with API keys"""
-        # Initialize Gemini
-        gemini_key = os.getenv("GOOGLE_API_KEY")
-        if gemini_key and GEMINI_AVAILABLE and genai:
+        # Initialize Gemini with hardcoded API key
+        gemini_key = "AIzaSyCHUCmpR7cT_yDFHC98CZJy23ETTqI6w_A"  # Your Google API key
+        if GEMINI_AVAILABLE and genai:
             try:
                 genai.configure(api_key=gemini_key)
                 self.gemini_client = genai
